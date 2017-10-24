@@ -149,6 +149,7 @@ class ParallelScenarioExtension implements ExtensionInterface
             new Reference(self::FEATURE_EXTRACTOR),
             new Reference(self::PROCESS_FACTORY),
             new Reference(self::OUTPUT_PRINTER),
+            new Reference('event_dispatcher'),
         ]);
 
         $definition->addTag(CliExtension::CONTROLLER_TAG, [

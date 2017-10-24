@@ -8,6 +8,9 @@ use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tonic\Behat\ParallelScenarioExtension\Event\FeatureResultEvent;
+use Tonic\Behat\ParallelScenarioExtension\Event\ParallelScenarioEventType;
 use Tonic\Behat\ParallelScenarioExtension\Feature\FeatureExtractor;
 use Tonic\Behat\ParallelScenarioExtension\Feature\FeatureRunner;
 use Tonic\Behat\ParallelScenarioExtension\Listener\OutputPrinter;
@@ -44,19 +47,26 @@ class ParallelScenarioController implements Controller
     private $inputDefinition;
 
     /**
+     * @var EventDispatcherInterface
+     */
+     private $eventDispatcher;
+
+    /**
      * ParallelScenarioController constructor.
      *
      * @param FeatureRunner          $featureRunner
      * @param FeatureExtractor       $featureExtractor
      * @param ScenarioProcessFactory $processFactory
      * @param OutputPrinter          $outputPrinter
+     * @param EventDispatcherInterface $eventDispatcher
      */
-    public function __construct(FeatureRunner $featureRunner, FeatureExtractor $featureExtractor, ScenarioProcessFactory $processFactory, OutputPrinter $outputPrinter)
+    public function __construct(FeatureRunner $featureRunner, FeatureExtractor $featureExtractor, ScenarioProcessFactory $processFactory, OutputPrinter $outputPrinter, EventDispatcherInterface $eventDispatcher)
     {
         $this->featureRunner = $featureRunner;
         $this->featureExtractor = $featureExtractor;
         $this->processFactory = $processFactory;
         $this->outputPrinter = $outputPrinter;
+        $this->eventDispatcher = $eventDispatcher;
     }
 
     /**
@@ -79,15 +89,16 @@ class ParallelScenarioController implements Controller
         $locator = $input->getArgument('paths');
 
         if ($maxProcessesAmount > 1) {
-            $this->outputPrinter->init($output);
+            $this->outputPrinter->init($output, $input);
             $this->processFactory->init($this->inputDefinition, $input);
             $this->featureRunner->setMaxParallelProcess($maxProcessesAmount);
 
             $result = 0;
-
+            $this->eventDispatcher->dispatch(ParallelScenarioEventType::EXECUTION_TESTED_BEFORE, new FeatureResultEvent($result));
             foreach ($this->featureExtractor->extract($locator) as $featureNode) {
                 $result = max($result, $this->featureRunner->run($featureNode));
             }
+            $this->eventDispatcher->dispatch(ParallelScenarioEventType::EXECUTION_TESTED_AFTER, new FeatureResultEvent($result));
         }
 
         return $result;

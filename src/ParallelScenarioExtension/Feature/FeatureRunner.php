@@ -4,6 +4,7 @@ namespace Tonic\Behat\ParallelScenarioExtension\Feature;
 
 use Behat\Gherkin\Node\FeatureNode;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tonic\Behat\ParallelScenarioExtension\Event\FeatureResultEvent;
 use Tonic\Behat\ParallelScenarioExtension\Event\ParallelScenarioEventType;
 use Tonic\Behat\ParallelScenarioExtension\ScenarioInfo\ScenarioInfo;
 use Tonic\Behat\ParallelScenarioExtension\ScenarioInfo\ScenarioInfoExtractor;
@@ -60,13 +61,11 @@ class FeatureRunner
     {
         $result = 0;
 
-        $this->eventDispatcher->dispatch(ParallelScenarioEventType::FEATURE_TESTED_BEFORE);
         $scenarioGroups = $this->scenarioInfoExtractor->extract($featureNode);
 
         foreach ($scenarioGroups as $scenarios) {
             $result = max($result, $this->runScenarios($scenarios));
         }
-        $this->eventDispatcher->dispatch(ParallelScenarioEventType::FEATURE_TESTED_BEFORE);
 
         return $result;
     }
@@ -97,11 +96,13 @@ class FeatureRunner
             return $this->scenarioProcessFactory->make($scenarioInfo);
         }, $scenarios);
 
+        $this->eventDispatcher->dispatch(ParallelScenarioEventType::FEATURE_TESTED_BEFORE, new FeatureResultEvent($result));
         $this->parallelProcessRunner->reset()->add($processes)->run();
 
         foreach ($processes as $process) {
             $result = max($result, $process->getExitCode());
         }
+        $this->eventDispatcher->dispatch(ParallelScenarioEventType::FEATURE_TESTED_AFTER, new FeatureResultEvent($result));
 
         return $result;
     }
